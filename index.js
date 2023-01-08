@@ -23,34 +23,45 @@ puppeteer.use(StealthPlugin());
    const page = await browser.newPage();
    await page.setUserAgent(ua);
 
-  const year = 2022 // check
+  const year = 2023 // check
   const baseUrl = `https://umanity.jp/racedata/db/ranking.php?type=7&year=${year}&page=`
   let pageNum = 1
-  const pageNumMax = 16 // check
   const tsv = []
 
-  while (pageNum <= pageNumMax) {
-    await page.goto(`${baseUrl}${pageNum}`, { waitUntil: 'networkidle2' });
+  try {
+    while (true) {
+      await page.goto(`${baseUrl}${pageNum}`, { waitUntil: 'networkidle2' });
 
-    await page.waitForSelector(".race");
+      await page.waitForSelector(".race");
 
-    const tsvRows = await page.evaluate(() => {
-      const tbodies = [...document.querySelectorAll('.race table tbody table tbody tbody tbody')].map(el => el.querySelectorAll('tr'))
-      const right = [...(tbodies[0] || [])]
-      const left = [...(tbodies[1] || [])]
-      right.shift()
-      left.shift()
+      const tsvRows = await page.evaluate(() => {
+        const tbodies = [...document.querySelectorAll('.race table tbody table tbody tbody tbody')].map(el => el.querySelectorAll('tr'))
+        const right = [...(tbodies[0] || [])]
+        const left = [...(tbodies[1] || [])]
+        right.shift()
+        left.shift()
 
-      const rows = [...right, ...left]
-      return rows.map(row => [...row.querySelectorAll('td')].map(el => el.textContent).join('\t'))
-    })
-    console.log(tsvRows)
+        const rows = [...right, ...left]
+        return rows.map(row => [...row.querySelectorAll('td')].map(el => el.textContent).join('\t'))
+      })
+      console.log(tsvRows)
 
-    tsv.push(tsvRows)
+      if (tsvRows.length < 1) {
+        const text = tsv.flat().join('\n')
+        fs.writeFileSync(`${year}.tsv`, text);
+        console.log('finish')
 
-    pageNum  += 1
+        return
+      };
+
+      tsv.push(tsvRows)
+
+      pageNum  += 1
+    }
+  } catch(error) {
+    const text = tsv.flat().join('\n')
+    fs.writeFileSync(`${year}.tsv`, text);
+
+    console.error(error);
   }
-
-  const text = tsv.flat().join('\n')
-  fs.writeFileSync(`${year}.tsv`, text);
 })();
